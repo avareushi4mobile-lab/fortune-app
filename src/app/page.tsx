@@ -230,7 +230,7 @@ export default function Home() {
               ].map((p) => (
                 <button key={p.id} type="button" onClick={() => setPlan(p.id as Plan)} className={`flex flex-col items-center rounded-xl border p-3 transition ${plan === p.id ? "border-[#d5ab55] bg-[#d5ab55]/10" : "border-[#444]"}`}>
                   <span className="text-sm font-bold">{p.label}</span>
-                  <span className="text-[10px] opacity-60">{p.price}</span>
+                  <span className="text-[10px] opacity-60">{p.id === "free" ? p.price : (p.id === "standard" ? "500円" : (p.id === "premium" ? "1500円" : "2980円"))}</span>
                 </button>
               ))}
             </div>
