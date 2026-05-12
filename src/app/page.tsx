@@ -223,10 +223,10 @@ export default function Home() {
             <p className="text-sm font-medium text-[#d7c089]">鑑定プランを選択</p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
-                {id: "free", label: "無料", price: "0円"},
-                {id: "standard", label: "通常", price: "price_1TW71jBaBEaG1KW6bWlkNeB0"},
-                {id: "premium", label: "豪華", price: "price_1TW73PBaBEaG1KW6Vpzo1IJ7"},
-                {id: "extreme", label: "極", price: "price_1TW6zeBaBEaG1KW6WORVK1Bh"}
+              {id: "free", label: "無料", price: "0円"},
+              {id: "standard", label: "通常", price: "price_1TW71jBaBEaG1KW6bWlkNeB0"},
+              {id: "premium", label: "豪華", price: "price_1TW73PBaBEaG1KW6Vpzo1IJ7"},
+              {id: "extreme", label: "極", price: "price_1TW6zeBaBEaG1KW6WORVK1Bh"}
               ].map((p) => (
                 <button key={p.id} type="button" onClick={() => setPlan(p.id as Plan)} className={`flex flex-col items-center rounded-xl border p-3 transition ${plan === p.id ? "border-[#d5ab55] bg-[#d5ab55]/10" : "border-[#444]"}`}>
                   <span className="text-sm font-bold">{p.label}</span>
