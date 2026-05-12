@@ -7,7 +7,7 @@ type Plan = "free" | "standard" | "premium" | "extreme";
 type Phase = "idle" | "shuffling" | "revealing" | "typing" | "done";
 
 export default function Home() {
-  const [plan, setPlan] = useState<Plan>("free");
+  const [plan, setPlan] = useState<Plan>("free");       
   const [genre, setGenre] = useState<FortuneGenre | null>(null);
   const [question, setQuestion] = useState("");
   const [birthday, setBirthday] = useState("");
