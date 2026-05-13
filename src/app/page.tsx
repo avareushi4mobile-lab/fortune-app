@@ -99,8 +99,7 @@ export default function Home() {
       return;
     }
 
-    // --- ここから決済ロジックの修正 ---
-    // 有料プラン選択時、かつパスワードによるバイパスがない場合は即決済へ
+    // 決済ロジック
     if (plan !== "free" && !hasAdminPass && !hasPremiumPass) {
       try {
         const res = await fetch("/api/checkout", {
@@ -110,19 +109,18 @@ export default function Home() {
         });
         const checkoutData = await res.json();
         if (checkoutData.url) {
-          window.location.href = checkoutData.url; // Stripeへ遷移
+          window.location.href = checkoutData.url;
           return;
         } else {
-          setError("決済画面の作成に失敗しました。");
+          setError("決済画面の作成に失敗しました。URLが取得できません。");
           return;
         }
       } catch (err) {
-        setError("通信エラーが発生しました。");
+        setError("通信エラーが発生しました。決済に接続できません。");
         return;
       }
     }
 
-    // 必須入力チェック（無料または決済済みの場合のみここに来る）
     if (!genre || !question.trim()) { setError("ジャンルと相談内容を入力してください。"); return; }
 
     const deck = Array.from({ length: 22 }, (_, i) => i);
@@ -158,8 +156,7 @@ export default function Home() {
       const data = await response.json();
       if (!response.ok) throw new Error("通信環境の良い場所で再度お試しください。");
 
-      let fortuneText = data.answer.trim();
-      setFinalAnswer(fortuneText);
+      setFinalAnswer(data.answer.trim());
     } catch (err: any) { setError(err.message); setPhase("idle"); } finally { setIsRequestPending(false); }
   };
 
@@ -189,6 +186,22 @@ export default function Home() {
               ))}
             </div>
           </div>
+
+          {/* ★復活させた生年月日入力欄★ */}
+          {(plan === "premium" || plan === "extreme") && (
+            <div className="space-y-4 rounded-xl border border-[#d5ab55]/20 bg-white/5 p-4">
+              <div className="space-y-2">
+                <p className="text-sm text-[#d7c089] font-bold">あなたの生年月日</p>
+                <input type="date" value={birthday} onChange={(e) => setBirthday(e.target.value)} className="w-full rounded-lg border border-[#6e5a2d] bg-[#0b0b0b] p-3 text-[#f7e6bd] outline-none" />
+              </div>
+              {plan === "extreme" && (
+                <div className="space-y-2 pt-2 border-t border-[#6e5a2d]/30">
+                  <p className="text-sm text-[#d7c089] font-bold">相手の生年月日（または設立日）</p>
+                  <input type="date" value={partnerBirthday} onChange={(e) => setPartnerBirthday(e.target.value)} className="w-full rounded-lg border border-[#6e5a2d] bg-[#0b0b0b] p-3 text-[#f7e6bd] outline-none" />
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="space-y-4">
             <div className="flex flex-wrap gap-2">
