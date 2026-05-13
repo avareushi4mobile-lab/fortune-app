@@ -111,10 +111,8 @@ export default function Home() {
         }
       }
     }
-
 // 有料プランならStripe決済へ飛ばす
     if (plan !== "free" && !hasAdminPass && !hasPremiumPass) {
-      setIsLoading(true);
       try {
         const response = await fetch("/api/checkout", {
           method: "POST",
@@ -132,10 +130,9 @@ export default function Home() {
       } catch (err) {
         setError("通信エラーが発生しました。");
         return;
-      } finally {
-        setIsLoading(false);
       }
     }
+
 
     if (!genre || !question.trim()) { setError("ジャンルと相談内容を入力してください。"); return; }
 
