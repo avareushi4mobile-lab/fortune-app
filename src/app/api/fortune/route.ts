@@ -8,7 +8,7 @@ export async function POST(request: Request) {
     
     // 2. 生年月日が空っぽの場合の「お守り」処理
     // 空（undefined）なら空文字に、データがあれば余白を消す
-    const safeBirthday = birthday ? birthday.trim() : "未入力";
+   const safeBirthday = (typeof birthday === 'string') ? birthday.trim() : "未入力";
     
     const spreadMap: { [key: string]: string } = {
       'single': '1枚', 'three': '3枚', 'five': '5枚', 'seven': '7枚', 'ten': '10枚'
