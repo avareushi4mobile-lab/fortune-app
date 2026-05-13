@@ -19,7 +19,7 @@ export default function TokushohoPage() {
         </div>
         <div>
           <p className="font-bold">メールアドレス</p>
-          <p>（ここにStripeに登録したメールアドレス）</p>
+          <p>kiyokotarot@gmail.com</p>
         </div>
         <div>
           <p className="font-bold">販売価格</p>
