@@ -114,14 +114,14 @@ export default function Home() {
 // 有料プランならStripe決済へ飛ばす
     if (plan !== "free" && !hasAdminPass && !hasPremiumPass) {
       try {
-        const response = await fetch("/api/checkout", {
+        const res = await fetch("/api/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ planId: plan }),
         });
-        const data = await response.json();
-        if (data.url) {
-          window.location.href = data.url; // Stripeのページへジャンプ
+        const checkoutData = await res.json();
+        if (checkoutData.url) {
+          window.location.href = checkoutData.url;
           return;
         } else {
           setError("決済画面の作成に失敗しました。");
