@@ -112,9 +112,29 @@ export default function Home() {
       }
     }
 
+// 有料プランならStripe決済へ飛ばす
     if (plan !== "free" && !hasAdminPass && !hasPremiumPass) {
-      setError("このプランは有料です。お悩み入力欄の最後に合言葉を入力してください。");
-      return;
+      setIsLoading(true);
+      try {
+        const response = await fetch("/api/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ planId: plan }),
+        });
+        const data = await response.json();
+        if (data.url) {
+          window.location.href = data.url; // Stripeのページへジャンプ
+          return;
+        } else {
+          setError("決済画面の作成に失敗しました。");
+          return;
+        }
+      } catch (err) {
+        setError("通信エラーが発生しました。");
+        return;
+      } finally {
+        setIsLoading(false);
+      }
     }
 
     if (!genre || !question.trim()) { setError("ジャンルと相談内容を入力してください。"); return; }
