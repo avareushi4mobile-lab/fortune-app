@@ -1,52 +1,38 @@
 import { NextResponse } from 'next/server';
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2024-04-10' as any,
+});
 
 export async function POST(request: Request) {
   try {
-    const { query, genre, spread } = await request.json();
-    
-    // スプレッドごとの枚数を定義
-    const spreadMap: { [key: string]: string } = {
-      'single': '1枚',
-      'three': '3枚',
-      'five': '5枚',
-      'seven': '7枚',
-      'ten': '10枚'
+    const { planId } = await request.json();
+
+    // 清子さんの本番用ID（price_...）の対応表
+    const PRICE_IDS: { [key: string]: string } = {
+      standard: "price_1TW71jBaBEaGlKW6bWlkNeB0", // 通常
+      premium: "price_1TW73PBaBEaGlKW6VpzolIJ7",  // 豪華
+      extreme: "price_1TW6zeBaBEaGlKW6WORVKlBh",  // 極
     };
-    const cardCount = spreadMap[spread] || '複数枚';
-    
-    const response = await fetch(`${process.env.DIFY_API_URL}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.DIFY_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        inputs: { genre: genre || "全般" },
-        query: `【${cardCount}引き】${genre}についての鑑定依頼。相談内容：${query}`,
-        response_mode: "blocking",
-        user: "user-123"
-      }),
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price: PRICE_IDS[planId],
+          quantity: 1,
+        },
+      ],
+      mode: 'payment',
+      // 決済成功後の戻り先
+      success_url: `${process.env.NEXT_PUBLIC_URL}?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.NEXT_PUBLIC_URL}`,
     });
 
-    const data = await response.json();
-    const difyAnswer = data.answer;
-
-    // 画面側の「データ不足エラー」を回避するためのダミーデータ付与
-    const baseResponse = {
-      cardInterpretations: {
-        past: "過去の足跡",
-        present: "現在の光",
-        future: "未来の兆し"
-      }
-    };
-
-    try {
-      const parsed = JSON.parse(difyAnswer);
-      return NextResponse.json({ ...baseResponse, answer: parsed.answer || difyAnswer });
-    } catch (e) {
-      return NextResponse.json({ ...baseResponse, answer: difyAnswer });
-    }
-  } catch (error) {
-    return NextResponse.json({ error: 'Server Error' }, { status: 500 });
+    return NextResponse.json({ url: session.url });
+  } catch (error: any) {
+    console.error('Stripe Error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
-}       
+}
