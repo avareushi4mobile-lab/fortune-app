@@ -99,7 +99,6 @@ export default function Home() {
       return;
     }
 
-    // 決済処理
     if (plan !== "free" && !hasAdminPass && !hasPremiumPass) {
       try {
         const res = await fetch("/api/checkout", {
@@ -238,6 +237,16 @@ export default function Home() {
             <p className="whitespace-pre-wrap leading-relaxed text-[#eedeb2] text-lg">{typedAnswer}</p>
           </div>
         )}
+
+        {/* --- フッター：特商法ページへの相互リンクを追加 --- */}
+        <footer className="mt-16 border-t border-[#6e5a2d]/30 pt-8 text-center">
+          <a 
+            href="/tokushoho" 
+            className="text-[12px] tracking-widest text-[#a8946a] hover:text-[#d5ab55] underline-offset-4 transition duration-300 underline"
+          >
+            特定商取引法に基づく表記
+          </a>
+        </footer>
       </main>
     </div>
   );
