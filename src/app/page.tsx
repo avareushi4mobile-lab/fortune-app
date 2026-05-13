@@ -99,7 +99,7 @@ export default function Home() {
       return;
     }
 
-    // 決済ロジック
+    // 決済処理
     if (plan !== "free" && !hasAdminPass && !hasPremiumPass) {
       try {
         const res = await fetch("/api/checkout", {
@@ -108,15 +108,16 @@ export default function Home() {
           body: JSON.stringify({ planId: plan }),
         });
         const checkoutData = await res.json();
-        if (checkoutData.url) {
+        if (res.ok && checkoutData.url) {
           window.location.href = checkoutData.url;
           return;
         } else {
-          setError("決済画面の作成に失敗しました。URLが取得できません。");
+          const errorMsg = checkoutData.error || "決済URLを取得できませんでした。";
+          setError(`決済エラー: ${errorMsg}`);
           return;
         }
       } catch (err) {
-        setError("通信エラーが発生しました。決済に接続できません。");
+        setError("通信エラーが発生しました。");
         return;
       }
     }
@@ -155,7 +156,6 @@ export default function Home() {
 
       const data = await response.json();
       if (!response.ok) throw new Error("通信環境の良い場所で再度お試しください。");
-
       setFinalAnswer(data.answer.trim());
     } catch (err: any) { setError(err.message); setPhase("idle"); } finally { setIsRequestPending(false); }
   };
@@ -187,7 +187,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* ★復活させた生年月日入力欄★ */}
           {(plan === "premium" || plan === "extreme") && (
             <div className="space-y-4 rounded-xl border border-[#d5ab55]/20 bg-white/5 p-4">
               <div className="space-y-2">
