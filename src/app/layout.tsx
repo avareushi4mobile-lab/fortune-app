@@ -43,9 +43,9 @@ export default function RootLayout({
               <div>
                 <h3 className="font-bold mb-3 text-gray-800">インフォメーション</h3>
                 <ul className="space-y-2">
-                  <li><a href="/tokushoho" class="hover:underline">特定商取引法に基づく表記</a></li>
-                  <li><a href="/privacy" class="hover:underline">プライバシーポリシー</a></li>
-                  <li><a href="/terms" class="hover:underline">利用規約</a></li>
+                  <li><a href="/tokushoho" className="hover:underline">特定商取引法に基づく表記</a></li>
+                  <li><a href="/privacy" className="hover:underline">プライバシーポリシー</a></li>
+                  <li><a href="/terms" className="hover:underline">利用規約</a></li>
                 </ul>
               </div>
 
