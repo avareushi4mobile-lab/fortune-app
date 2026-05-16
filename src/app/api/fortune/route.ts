@@ -13,19 +13,17 @@ export async function POST(request: Request) {
     const safeCardsStr = (typeof cards === 'string') ? cards.trim() : "0";
     const safePlan = (typeof plan === 'string') ? plan.trim() : "通常プラン";
 
-    // 🚨 Difyプラグインのクラッシュ（args:{}）を消滅させるため、文字列配列と数値配列の両方を用意
     const cardArrayStr = safeCardsStr.split(",").map(v => v.trim());
     const cardArrayNum = cardArrayStr.map(v => parseInt(v, 10)).filter(v => !isNaN(v));
 
-    // Dify側のツールやプラグインが求める可能性のあるすべての変数バリエーションを網羅して送信
     const difyRequestBody = {
       inputs: { 
         genre: genre || "全般",
         birthday: safeBirthday,
-        cards: safeCardsStr,           // カンマ区切り文字列（"1,2,3"）
-        Cards: safeCardsStr,           // 頭文字大文字パターン
-        cards_array: cardArrayStr,     // 文字列配列（["1","2","3"]）
-        selected_cards: cardArrayNum,  // 数値配列（[1,2,3]）
+        cards: safeCardsStr,           
+        Cards: safeCardsStr,           
+        cards_array: cardArrayStr,     
+        selected_cards: cardArrayNum,  
         partner_birthday: safePartnerBirthday
       },
       query: `【鑑定指示】
@@ -61,7 +59,6 @@ ${question}`,
 
     const data = await response.json();
     
-    // アプリタイプ別のデータ自動抽出
     let difyAnswer = "";
     if (data.answer) {
       difyAnswer = data.answer;
