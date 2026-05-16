@@ -63,7 +63,7 @@ export default function Home() {
 
   const getCardImage = (cardNum: number) => `https://picsum.photos/seed/${sessionSeed}-${cardNum}/200/300`;
 
-  // シャッフルのタイマー管理（7秒後にカードめくり画面へ）
+  // シャッフルのタイマー管理（7秒後にカード選択画面へ）
   useEffect(() => {
     if (phase !== "shuffling") return;
     const timer = window.setTimeout(() => {
@@ -134,7 +134,7 @@ export default function Home() {
       free: "無料プラン（250文字以内。形式『結論：』『アドバイス：』。占星術禁止。改行必須）",
       standard: "通常プラン（700文字以内。カードのみ。占星術禁止。主語は『相手』。改行必須）",
       premium: "豪華プラン（1100文字以内。占星術使用。主語は『相手』。改行必須）",
-      extreme: "極プラン（1800文字以内。占星術使用。主語は『相手』。改行必須）"
+      extreme: "極プラン（1800文字以内。占星術使用.主語は『相手』。改行必須）"
     }[plan];
 
     const maskPatterns = [
@@ -230,13 +230,13 @@ export default function Home() {
 
         {error && <p className="mt-6 text-red-400 text-center bg-red-950/30 p-3 rounded-lg border border-red-500/50">{error}</p>}
 
-        {/* 【画面分離1】フェーズが shuffling のときだけ動画を流す。他フェーズでは痕跡すら残さない */}
+        {/* 【絶対隔離】シャッフルフェーズ：終わったら中身ごと100%消滅させる仕様に変更 */}
         {phase === "shuffling" && (
-          <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center min-h-[400px] flex flex-col items-center justify-center relative bg-[#111]/95 rounded-xl overflow-hidden">
-            <h2 className="text-xl font-semibold text-[#f5d995] mb-48 tracking-widest animate-pulse">
+          <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center h-[450px] relative bg-[#111]/95 rounded-xl overflow-hidden z-50">
+            <h2 className="text-xl font-semibold text-[#f5d995] mb-12 tracking-widest animate-pulse">
               運命のカードを混ぜ合わせています...
             </h2>
-            <div className="relative w-full h-0 flex items-center justify-center">
+            <div className="relative w-full h-full flex items-center justify-center">
               {shuffleCardsData.map((c) => (
                 <div 
                   key={c.id}
@@ -254,9 +254,9 @@ export default function Home() {
           </section>
         )}
 
-        {/* 【画面分離2】フェーズが revealing のとき（カードをめくる画面） */}
+        {/* 【カード選択フェーズ】 */}
         {phase === "revealing" && (
-          <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center min-h-[300px] flex flex-col items-center justify-center">
+          <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center min-h-[300px] flex flex-col items-center justify-center relative z-10">
             <h2 className="text-lg font-semibold text-[#f5d995] mb-6">導かれたカードをめくってください</h2>
             <div className="flex flex-wrap justify-center gap-4">
               {selectedCards.map((cardNum, index) => (
@@ -264,9 +264,10 @@ export default function Home() {
                   key={index} 
                   onClick={() => { 
                     setAllRevealed(true); 
-                    setPhase("typing"); // めくったら即座に文字送り画面に切り替える
+                    setPhase("typing"); 
                   }} 
-                  className={`relative w-24 h-36 transition-transform duration-700 [transform-style:preserve-3d] ${allRevealed ? "[transform:rotateY(180deg)]" : ""}`}
+                  className="relative w-24 h-36 transition-transform duration-700 [transform-style:preserve-3d]"
+                  style={{ perspective: "1000px" }}
                 >
                   <div className="absolute inset-0 flex items-center justify-center border border-[#d5ab55] bg-[#1a1a1a] rounded-lg [backface-visibility:hidden]">
                     <span className="text-[#d5ab55] text-2xl">✦</span>
@@ -280,10 +281,11 @@ export default function Home() {
           </section>
         )}
 
-        {/* 【画面分離3】鑑定書の表示フェーズ（typing または done のとき。カードの残像や動画は完全に消滅する） */}
+        {/* 【鑑定書表示フェーズ】完全に独立した最前面レイヤー(z-50)に設定し、残像カードを下に叩き落とす */}
         {(phase === "typing" || phase === "done") && (
-          <section className="mt-10 border-t border-[#6e5a2d] pt-8">
-            {/* めくったカードを鑑定書の上に小さく並べて見せる（安心感の演出） */}
+          <section className="mt-10 border-t border-[#6e5a2d] pt-8 relative z-50 bg-[#111] rounded-xl p-2">
+            
+            {/* めくったカードのプレビュー */}
             <div className="flex flex-wrap justify-center gap-2 mb-6 opacity-60 scale-90">
               {selectedCards.map((cardNum, index) => (
                 <div key={index} className="w-12 h-18 border border-[#d5ab55] rounded overflow-hidden">
