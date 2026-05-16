@@ -61,7 +61,7 @@ export default function Home() {
 
   const getCardImage = (cardNum: number) => `https://picsum.photos/seed/${sessionSeed}-${cardNum}/200/300`;
 
-  // 7秒のシャッフルタイマー（時間が来たら何があっても確実にカードめくりへ）
+  // 7秒のシャッフルタイマー
   useEffect(() => {
     if (phase !== "shuffling") return;
     const timer = window.setTimeout(() => {
@@ -122,13 +122,12 @@ export default function Home() {
     const chosenCards = shuffledDeck.slice(0, cardCount);
     setSelectedCards(chosenCards);
 
-    // シャッフル画面へ完全移行
     setPhase("shuffling");
 
     const planConfig = {
       free: "無料プラン（250文字以内。形式『結論：』『アドバイス：』。占星術禁止。改行必須）",
       standard: "通常プラン（700文字以内。カードのみ。占星術禁止。主語は『相手』。改行必須）",
-      premium: "豪華プラン（1100文字以内.占星術使用。主語は『相手』。改行必須）",
+      premium: "豪華プラン（1100文字以内。占星術使用。主語は『相手』。改行必須）",
       extreme: "極プラン（1800文字以内。占星術使用。主語は『相手』。改行必須）"
     }[plan];
 
@@ -165,17 +164,14 @@ export default function Home() {
       
     } catch (err: any) { 
       setError(err.message || "通信エラーが発生しました。"); 
-      setPhase("idle"); // エラー時は確実に最初の入力状態に戻す
+      setPhase("idle"); 
     }
   };
 
   return (
     <div className="relative min-h-screen bg-[#070707] px-6 py-12 text-[#f5e6b7] overflow-x-hidden">
       
-      {/* 【最強の配置バグ対策】
-        シャッフルフェーズ（shuffling）以外のときは、CSSの絶対配置カード（.swirl-card）そのものを
-        この世から「非表示（display: none）」にして完全消滅させる強力なスタイルインジェクション
-      */}
+      {/* シャッフルフェーズ以外の時は、絶対配置CSSを強制無効化 */}
       <style jsx global>{`
         ${phase !== "shuffling" ? `
           .swirl-card, .shuffle-card-inner {
@@ -242,9 +238,7 @@ export default function Home() {
 
             <div className="space-y-4">
               <div className="flex flex-wrap gap-2">
-                {FORTFortune_GENRES?.map ? FORTUNE_GENRES.map((g) => (
-                  <button key={g} type="button" onClick={() => setGenre(g)} className={`rounded-full border px-4 py-2 text-sm ${genre === g ? "bg-[#d5ab55] text-black" : "border-[#6e5a2d]"}`}>{g}</button>
-                )) : FORTUNE_GENRES.map((g) => (
+                {FORTUNE_GENRES.map((g) => (
                   <button key={g} type="button" onClick={() => setGenre(g)} className={`rounded-full border px-4 py-2 text-sm ${genre === g ? "bg-[#d5ab55] text-black" : "border-[#6e5a2d]"}`}>{g}</button>
                 ))}
               </div>
@@ -257,7 +251,7 @@ export default function Home() {
           </form>
         )}
 
-        {/* 【フェーズ2】シャッフル動画画面：完全に独立 */}
+        {/* 【フェーズ2】シャッフル動画画面 */}
         {phase === "shuffling" && !error && shuffleCardsData.length > 0 && (
           <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center h-[450px] relative bg-[#111]/95 rounded-xl overflow-hidden z-40">
             <h2 className="text-xl font-semibold text-[#f5d995] mb-12 tracking-widest animate-pulse">
