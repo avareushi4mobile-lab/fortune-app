@@ -63,7 +63,7 @@ export default function Home() {
 
   const getCardImage = (cardNum: number) => `https://picsum.photos/seed/${sessionSeed}-${cardNum}/200/300`;
 
-  // シャッフルのタイマー管理（7秒後にカード選択画面へ）
+  // シャッフルのタイマー管理（7秒後にカード選択画面へ移行）
   useEffect(() => {
     if (phase !== "shuffling") return;
     const timer = window.setTimeout(() => {
@@ -126,6 +126,7 @@ export default function Home() {
     const chosenCards = shuffledDeck.slice(0, cardCount);
     setSelectedCards(chosenCards);
 
+    // 演出スタート
     setPhase("shuffling");
     setIsRequestPending(true);
     setIsShuffleDone(false);
@@ -134,7 +135,7 @@ export default function Home() {
       free: "無料プラン（250文字以内。形式『結論：』『アドバイス：』。占星術禁止。改行必須）",
       standard: "通常プラン（700文字以内。カードのみ。占星術禁止。主語は『相手』。改行必須）",
       premium: "豪華プラン（1100文字以内。占星術使用。主語は『相手』。改行必須）",
-      extreme: "極プラン（1800文字以内。占星術使用.主語は『相手』。改行必須）"
+      extreme: "極プラン（1800文字以内。占星術使用。主語は『相手』。改行必須）"
     }[plan];
 
     const maskPatterns = [
@@ -160,13 +161,24 @@ export default function Home() {
         }),
       });
 
+      if (!response.ok) {
+        throw new Error(`サーバーエラーが発生しました(Status: ${response.status})。Dify側のログ、またはプロンプトの設定を確認してください。`);
+      }
+
       const data = await response.json();
-      if (!response.ok) throw new Error("通信環境の良い場所で再度お試しください。");
+      
+      // JSONのパースチェック（AIからの返答が壊れている場合の防衛策）
+      if (!data || !data.answer) {
+        throw new Error("AIからの回答データ（JSON）の形式が正しくありません。Difyの出力設定（JSON形式のみ）を見直してください。");
+      }
+
       setFinalAnswer(data.answer.trim());
       
     } catch (err: any) { 
-      setError(err.message); 
+      // 【最重要修正】エラーが起きても絶対に元の画面(idle)に戻さず、動画演出を安全にストップさせる
+      setError(err.message || "予期せぬ通信エラーが発生しました。"); 
       setPhase("idle"); 
+      setIsShuffleDone(true);
     } finally {
       setIsRequestPending(false);
     }
@@ -181,58 +193,70 @@ export default function Home() {
           あなたの専属占い師 <span className="text-sm font-normal text-[#d7c089]">(監修：清子)</span>
         </h1>
         
-        <form onSubmit={handleSubmit} className="mt-8 space-y-8">
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-[#d7c089]">鑑定プランを選択</p>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {[
-                {id: "free", label: "無料", price: "0円"},
-                {id: "standard", label: "通常", price: "500円"},
-                {id: "premium", label: "豪華", price: "1500円"},
-                {id: "extreme", label: "極", price: "2980円"}
-              ].map((p) => (
-                <button key={p.id} type="button" onClick={() => setPlan(p.id as Plan)} className={`flex flex-col items-center rounded-xl border p-3 transition ${plan === p.id ? "border-[#d5ab55] bg-[#d5ab55]/10" : "border-[#444]"}`}>
-                  <span className="text-sm font-bold">{p.label}</span>
-                  <span className="text-[10px] opacity-60">{p.price}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {(plan === "premium" || plan === "extreme") && (
-            <div className="space-y-4 rounded-xl border border-[#d5ab55]/20 bg-white/5 p-4">
-              <div className="space-y-2">
-                <p className="text-sm text-[#d7c089] font-bold">あなたの生年月日</p>
-                <input type="date" value={birthday} onChange={(e) => setBirthday(e.target.value)} className="w-full rounded-lg border border-[#6e5a2d] bg-[#0b0b0b] p-3 text-[#f7e6bd] outline-none" />
+        {/* 通常の入力フォーム（鑑定中は非表示にして混乱を防ぐ） */}
+        {phase === "idle" && (
+          <form onSubmit={handleSubmit} className="mt-8 space-y-8">
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-[#d7c089]">鑑定プランを選択</p>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {[
+                  {id: "free", label: "無料", price: "0円"},
+                  {id: "standard", label: "通常", price: "500円"},
+                  {id: "premium", label: "豪華", price: "1500円"},
+                  {id: "extreme", label: "極", price: "2980円"}
+                ].map((p) => (
+                  <button key={p.id} type="button" onClick={() => setPlan(p.id as Plan)} className={`flex flex-col items-center rounded-xl border p-3 transition ${plan === p.id ? "border-[#d5ab55] bg-[#d5ab55]/10" : "border-[#444]"}`}>
+                    <span className="text-sm font-bold">{p.label}</span>
+                    <span className="text-[10px] opacity-60">{p.price}</span>
+                  </button>
+                ))}
               </div>
-              {plan === "extreme" && (
-                <div className="space-y-2 pt-2 border-t border-[#6e5a2d]/30">
-                  <p className="text-sm text-[#d7c089] font-bold">相手の生年月日（または会社の設立日）入力無しでも大丈夫です</p>
-                  <input type="date" value={partnerBirthday} onChange={(e) => setPartnerBirthday(e.target.value)} className="w-full rounded-lg border border-[#6e5a2d] bg-[#0b0b0b] p-3 text-[#f7e6bd] outline-none" />
+            </div>
+
+            {(plan === "premium" || plan === "extreme") && (
+              <div className="space-y-4 rounded-xl border border-[#d5ab55]/20 bg-white/5 p-4">
+                <div className="space-y-2">
+                  <p className="text-sm text-[#d7c089] font-bold">あなたの生年月日</p>
+                  <input type="date" value={birthday} onChange={(e) => setBirthday(e.target.value)} className="w-full rounded-lg border border-[#6e5a2d] bg-[#0b0b0b] p-3 text-[#f7e6bd] outline-none" />
                 </div>
-              )}
-            </div>
-          )}
+                {plan === "extreme" && (
+                  <div className="space-y-2 pt-2 border-t border-[#6e5a2d]/30">
+                    <p className="text-sm text-[#d7c089] font-bold">相手の生年月日（または会社の設立日）入力無しでも大丈夫です</p>
+                    <input type="date" value={partnerBirthday} onChange={(e) => setPartnerBirthday(e.target.value)} className="w-full rounded-lg border border-[#6e5a2d] bg-[#0b0b0b] p-3 text-[#f7e6bd] outline-none" />
+                  </div>
+                )}
+              </div>
+            )}
 
-          <div className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              {FORTUNE_GENRES.map((g) => (
-                <button key={g} type="button" onClick={() => setGenre(g)} className={`rounded-full border px-4 py-2 text-sm ${genre === g ? "bg-[#d5ab55] text-black" : "border-[#6e5a2d]"}`}>{g}</button>
-              ))}
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {FORTUNE_GENRES.map((g) => (
+                  <button key={g} type="button" onClick={() => setGenre(g)} className={`rounded-full border px-4 py-2 text-sm ${genre === g ? "bg-[#d5ab55] text-black" : "border-[#6e5a2d]"}`}>{g}</button>
+                ))}
+              </div>
+              <textarea className="h-32 w-full rounded-xl border border-[#6e5a2d] bg-[#0b0b0b] p-3 text-[#f7e6bd] focus:border-[#d5ab55] outline-none" placeholder="今、悩んでいることを詳しく教えてください..." value={question} onChange={(e) => setQuestion(e.target.value)} />
             </div>
-            <textarea className="h-32 w-full rounded-xl border border-[#6e5a2d] bg-[#0b0b0b] p-3 text-[#f7e6bd] focus:border-[#d5ab55] outline-none" placeholder="今、悩んでいることを詳しく教えてください..." value={question} onChange={(e) => setQuestion(e.target.value)} />
+
+            <button type="submit" className="w-full rounded-full bg-[#c7983f] py-4 font-bold text-black hover:bg-[#d5ab55] transition text-lg shadow-lg">
+              {plan === "free" ? "お試し鑑定を受ける（無料）" : "本鑑定を開始する"}
+            </button>
+          </form>
+        )}
+
+        {/* 画面上部へのエラー集約表示 */}
+        {error && (
+          <div className="mt-6 text-red-400 text-center bg-red-950/40 p-4 rounded-lg border border-red-500/50 relative z-50">
+            <p className="font-bold mb-2">⚠️ エラーが発生しました</p>
+            <p className="text-sm">{error}</p>
+            <button onClick={() => { setError(""); setPhase("idle"); }} className="mt-3 px-4 py-1 bg-red-800 text-white rounded-full text-xs hover:bg-red-700 transition">
+              入力画面に戻る
+            </button>
           </div>
+        )}
 
-          <button type="submit" className="w-full rounded-full bg-[#c7983f] py-4 font-bold text-black hover:bg-[#d5ab55] transition text-lg shadow-lg">
-            {plan === "free" ? "お試し鑑定を受ける（無料）" : "本鑑定を開始する"}
-          </button>
-        </form>
-
-        {error && <p className="mt-6 text-red-400 text-center bg-red-950/30 p-3 rounded-lg border border-red-500/50">{error}</p>}
-
-        {/* 【絶対隔離】シャッフルフェーズ：終わったら中身ごと100%消滅させる仕様に変更 */}
+        {/* 【隔離1】シャッフルフェーズ */}
         {phase === "shuffling" && (
-          <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center h-[450px] relative bg-[#111]/95 rounded-xl overflow-hidden z-50">
+          <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center h-[450px] relative bg-[#111]/95 rounded-xl overflow-hidden z-40">
             <h2 className="text-xl font-semibold text-[#f5d995] mb-12 tracking-widest animate-pulse">
               運命のカードを混ぜ合わせています...
             </h2>
@@ -254,9 +278,9 @@ export default function Home() {
           </section>
         )}
 
-        {/* 【カード選択フェーズ】 */}
+        {/* 【隔離2】カード選択フェーズ */}
         {phase === "revealing" && (
-          <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center min-h-[300px] flex flex-col items-center justify-center relative z-10">
+          <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center min-h-[300px] flex flex-col items-center justify-center relative z-40">
             <h2 className="text-lg font-semibold text-[#f5d995] mb-6">導かれたカードをめくってください</h2>
             <div className="flex flex-wrap justify-center gap-4">
               {selectedCards.map((cardNum, index) => (
@@ -281,11 +305,9 @@ export default function Home() {
           </section>
         )}
 
-        {/* 【鑑定書表示フェーズ】完全に独立した最前面レイヤー(z-50)に設定し、残像カードを下に叩き落とす */}
+        {/* 【隔離3】鑑定書表示フェーズ */}
         {(phase === "typing" || phase === "done") && (
-          <section className="mt-10 border-t border-[#6e5a2d] pt-8 relative z-50 bg-[#111] rounded-xl p-2">
-            
-            {/* めくったカードのプレビュー */}
+          <section className="mt-10 border-t border-[#6e5a2d] pt-8 relative z-40 bg-[#111] rounded-xl p-2">
             <div className="flex flex-wrap justify-center gap-2 mb-6 opacity-60 scale-90">
               {selectedCards.map((cardNum, index) => (
                 <div key={index} className="w-12 h-18 border border-[#d5ab55] rounded overflow-hidden">
