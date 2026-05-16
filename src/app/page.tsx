@@ -82,7 +82,7 @@ export default function Home() {
     return () => window.clearInterval(timer);
   }, [phase, finalAnswer]);
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
     setAllRevealed(false);
@@ -94,16 +94,13 @@ export default function Home() {
 
     if (!genre || !question.trim()) { setError("ジャンルと相談内容を詳しく入力してください。。。"); return; }
 
-    /* 【修正ポイント】
-      ここに存在していた Stripe決済URLを取得してリダイレクトする処理（if (plan !== "free" && ...)）を完全に削除しました。
-      これにより、どのプランを選択してボタンを押しても、直接下のAI鑑定（/api/fortune）の通信へ進みます。
-    */
-
+    // 1. 先にカードを決定する
     const deck = Array.from({ length: 22 }, (_, i) => i);
     const shuffledDeck = deck.sort(() => Math.random() - 0.5);
     const chosenCards = shuffledDeck.slice(0, cardCount);
     setSelectedCards(chosenCards);
 
+    // 2. 先に画面のシャッフルアニメーションを開始する（通信を待たずにフェーズを動かす）
     setPhase("shuffling");
     setIsRequestPending(true);
     setIsShuffleDone(false);
@@ -124,6 +121,7 @@ export default function Home() {
       PASSWORDS.KIWAMI_3000
     ].join("|");
 
+    // 3. 裏側で非同期にDify（AI）へ通信を投げる
     try {
       const response = await fetch("/api/fortune", {
         method: "POST",
@@ -141,9 +139,16 @@ export default function Home() {
       const data = await response.json();
       if (!response.ok) throw new Error("通信環境の良い場所で再度お試しください。");
       setFinalAnswer(data.answer.trim());
-    } catch (err: any) { setError(err.message); setPhase("idle"); } finally { setIsRequestPending(false); }
-  };
+      
+      // データが正常に届いたら保留フラグを解除
+      setIsRequestPending(false);
 
+    } catch (err: any) { 
+      setError(err.message); 
+      setPhase("idle"); 
+      setIsRequestPending(false);
+    }
+  };
   return (
     <div className="relative min-h-screen bg-[#070707] px-6 py-12 text-[#f5e6b7]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,#3a2c13_0%,#0b0b0b_45%,#050505_100%)] opacity-70" />
