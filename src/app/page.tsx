@@ -62,7 +62,7 @@ export default function Home() {
 
   const getCardImage = (cardNum: number) => `https://picsum.photos/seed/${sessionSeed}-${cardNum}/200/300`;
 
-  // 【場所指示の修正】シャッフルは7秒後に100%確実に終了し、次の画面へ強制移動
+  // 7秒のシャッフルタイマー
   useEffect(() => {
     if (phase !== "shuffling") return;
     const timer = window.setTimeout(() => {
@@ -72,7 +72,7 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, [phase]);
 
-  // 文字送りアニメーション
+  // タイピング演出
   useEffect(() => {
     if (phase !== "typing" || !finalAnswer) return;
     let index = 0;
@@ -120,7 +120,6 @@ export default function Home() {
       return;
     }
 
-    // 最初にカードを決定してシャッフル画面へ完全切り替え
     const deck = Array.from({ length: 22 }, (_, i) => i);
     const shuffledDeck = deck.sort(() => Math.random() - 0.5);
     const chosenCards = shuffledDeck.slice(0, cardCount);
@@ -147,7 +146,6 @@ export default function Home() {
     ].join("|");
 
     try {
-      // Difyの初期仕様（genreとbirthdayのみ）に100%安全に噛み合わせる送信データ
       const response = await fetch("/api/fortune", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -174,7 +172,7 @@ export default function Home() {
       
     } catch (err: any) { 
       setError(err.message || "通信エラーが発生しました。"); 
-      setPhase("idle"); // エラーが起きたら完全に初期画面に戻す
+      setPhase("idle"); 
     } finally {
       setIsRequestPending(false);
     }
@@ -189,7 +187,7 @@ export default function Home() {
           あなたの専属占い師 <span className="text-sm font-normal text-[#d7c089]">(監修：清子)</span>
         </h1>
         
-        {/* エラー表示 */}
+        {/* エラーアラート：最上部に完全隔離 */}
         {error && (
           <div className="mt-6 text-red-400 text-center bg-red-950/40 p-4 rounded-lg border border-red-500/50 relative z-50">
             <p className="font-bold mb-1">⚠️ エラーが発生しました</p>
@@ -200,12 +198,12 @@ export default function Home() {
           </div>
         )}
 
-        {/* =========================================================================
-            【完全分離型・フェーズ制御】
-            各画面は排他的（どれか1つしか絶対に表示されない）に配置し、重なりを物理的に抹殺
-           ========================================================================= */}
+        {/* ----------------------------------------------------------------------
+            【HTML構造改革】
+            各画面のsectionタグが絶対に交差・ネスト（入れ子）しないよう綺麗に整列
+           ---------------------------------------------------------------------- */}
 
-        {/* 【1】入力画面：フェーズがidle、かつエラーがない時だけ表示 */}
+        {/* 【1】入力画面 */}
         {phase === "idle" && !error && (
           <form onSubmit={handleSubmit} className="mt-8 space-y-8">
             <div className="space-y-3">
@@ -255,7 +253,7 @@ export default function Home() {
           </form>
         )}
 
-        {/* 【2】シャッフル動画画面：フェーズがshufflingの時「だけ」出現。鑑定文エリアとは完全に独立 */}
+        {/* 【2】シャッフル動画画面：完全にここで独立して閉じる */}
         {phase === "shuffling" && !error && (
           <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center h-[450px] relative bg-[#111]/95 rounded-xl overflow-hidden">
             <h2 className="text-xl font-semibold text-[#f5d995] mb-12 tracking-widest animate-pulse">
@@ -279,7 +277,7 @@ export default function Home() {
           </section>
         )}
 
-        {/* 【3】カード選択画面：フェーズがrevealingの時「だけ」出現 */}
+        {/* 【3】カード選択画面：完全にここで独立して閉じる */}
         {phase === "revealing" && !error && (
           <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center min-h-[300px] flex flex-col items-center justify-center relative">
             <h2 className="text-lg font-semibold text-[#f5d995] mb-6">導かれたカードをめくってください</h2>
@@ -289,7 +287,7 @@ export default function Home() {
                   key={index} 
                   onClick={() => { 
                     setAllRevealed(true); 
-                    setPhase("typing"); // クリックされた瞬間、この【3】の箱はHTMLから物理消滅し【4】へ移行
+                    setPhase("typing"); 
                   }} 
                   className="relative w-24 h-36 transition-transform duration-700 [transform-style:preserve-3d]"
                   style={{ perspective: "1000px" }}
@@ -306,9 +304,9 @@ export default function Home() {
           </section>
         )}
 
-        {/* 【4】鑑定書表示画面：typing または done の時「だけ」初めてこの世に出現。動画の残像は構造上絶対に侵入不可 */}
+        {/* 【4】鑑定書表示画面：完全に独立した最下層の部屋 */}
         {(phase === "typing" || phase === "done") && !error && (
-          <section className="mt-10 border-t border-[#6e5a2d] pt-8">
+          <section className="mt-10 border-t border-[#6e5a2d] pt-8 relative block">
             <div className="flex flex-wrap justify-center gap-2 mb-6 opacity-80">
               {selectedCards.map((cardNum, index) => (
                 <div key={index} className="w-12 h-18 border border-[#d5ab55] rounded overflow-hidden shadow-md">
@@ -317,7 +315,7 @@ export default function Home() {
               ))}
             </div>
             
-            <div className="rounded-xl border border-[#d5ab55]/30 bg-[#0a0a0a] p-8 shadow-inner relative">
+            <div className="rounded-xl border border-[#d5ab55]/30 bg-[#0a0a0a] p-8 shadow-inner relative z-50">
               <h2 className="text-2xl font-bold text-[#f2d389] mb-4">
                 鑑定書<span className={phase === "typing" ? "typing-cursor" : ""} />
               </h2>
