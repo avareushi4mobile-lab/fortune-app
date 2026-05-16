@@ -48,9 +48,9 @@ export default function Home() {
     return map[plan];
   }, [plan]);
 
-  // シャッフル中（shuffling）以外は、メモリ節約と暴走防止のためにデータを空にする仕様に変更
+  // シャッフル中(shuffling)の時だけカードデータを生成する安全ガード
   const shuffleCardsData = useMemo(() => {
-    if (phase !== "shuffling") return []; // 🚨 鑑定文エリアへの漏れ出しを物理的に防ぐ最重要ガード
+    if (phase !== "shuffling") return [];
     return Array.from({ length: 22 }).map((_, i) => ({
       id: i,
       delay: `${i * 100}ms`,
@@ -61,7 +61,7 @@ export default function Home() {
 
   const getCardImage = (cardNum: number) => `https://picsum.photos/seed/${sessionSeed}-${cardNum}/200/300`;
 
-  // 7秒のシャッフルタイマー
+  // 7秒のシャッフルタイマー（時間が来たら何があっても確実にカードめくりへ）
   useEffect(() => {
     if (phase !== "shuffling") return;
     const timer = window.setTimeout(() => {
@@ -70,7 +70,7 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, [phase]);
 
-  // タイピング演出
+  // 文字送りタイピング演出
   useEffect(() => {
     if (phase !== "typing" || !finalAnswer) return;
     let index = 0;
@@ -122,12 +122,13 @@ export default function Home() {
     const chosenCards = shuffledDeck.slice(0, cardCount);
     setSelectedCards(chosenCards);
 
+    // シャッフル画面へ完全移行
     setPhase("shuffling");
 
     const planConfig = {
       free: "無料プラン（250文字以内。形式『結論：』『アドバイス：』。占星術禁止。改行必須）",
       standard: "通常プラン（700文字以内。カードのみ。占星術禁止。主語は『相手』。改行必須）",
-      premium: "豪華プラン（1100文字以内。占星術使用。主語は『相手』。改行必須）",
+      premium: "豪華プラン（1100文字以内.占星術使用。主語は『相手』。改行必須）",
       extreme: "極プラン（1800文字以内。占星術使用。主語は『相手』。改行必須）"
     }[plan];
 
@@ -164,12 +165,28 @@ export default function Home() {
       
     } catch (err: any) { 
       setError(err.message || "通信エラーが発生しました。"); 
-      setPhase("idle"); 
+      setPhase("idle"); // エラー時は確実に最初の入力状態に戻す
     }
   };
 
   return (
     <div className="relative min-h-screen bg-[#070707] px-6 py-12 text-[#f5e6b7] overflow-x-hidden">
+      
+      {/* 【最強の配置バグ対策】
+        シャッフルフェーズ（shuffling）以外のときは、CSSの絶対配置カード（.swirl-card）そのものを
+        この世から「非表示（display: none）」にして完全消滅させる強力なスタイルインジェクション
+      */}
+      <style jsx global>{`
+        ${phase !== "shuffling" ? `
+          .swirl-card, .shuffle-card-inner {
+            display: none !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+          }
+        ` : ""}
+      `}</style>
+
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,#3a2c13_0%,#0b0b0b_45%,#050505_100%)] opacity-70" />
       
       <main className="relative z-10 mx-auto max-w-4xl rounded-2xl border border-[#8f7333]/50 bg-[#111111]/90 p-6 md:p-10 shadow-lg">
@@ -188,7 +205,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* 【1】入力画面 */}
+        {/* 【フェーズ1】入力フォーム */}
         {phase === "idle" && !error && (
           <form onSubmit={handleSubmit} className="mt-8 space-y-8">
             <div className="space-y-3">
@@ -225,7 +242,9 @@ export default function Home() {
 
             <div className="space-y-4">
               <div className="flex flex-wrap gap-2">
-                {FORTUNE_GENRES.map((g) => (
+                {FORTFortune_GENRES?.map ? FORTUNE_GENRES.map((g) => (
+                  <button key={g} type="button" onClick={() => setGenre(g)} className={`rounded-full border px-4 py-2 text-sm ${genre === g ? "bg-[#d5ab55] text-black" : "border-[#6e5a2d]"}`}>{g}</button>
+                )) : FORTUNE_GENRES.map((g) => (
                   <button key={g} type="button" onClick={() => setGenre(g)} className={`rounded-full border px-4 py-2 text-sm ${genre === g ? "bg-[#d5ab55] text-black" : "border-[#6e5a2d]"}`}>{g}</button>
                 ))}
               </div>
@@ -238,9 +257,9 @@ export default function Home() {
           </form>
         )}
 
-        {/* 【2】シャッフル動画画面：配列が空の時は完全に何もレンダリングしない */}
+        {/* 【フェーズ2】シャッフル動画画面：完全に独立 */}
         {phase === "shuffling" && !error && shuffleCardsData.length > 0 && (
-          <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center h-[450px] relative bg-[#111]/95 rounded-xl overflow-hidden">
+          <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center h-[450px] relative bg-[#111]/95 rounded-xl overflow-hidden z-40">
             <h2 className="text-xl font-semibold text-[#f5d995] mb-12 tracking-widest animate-pulse">
               運命のカードを混ぜ合わせています...
             </h2>
@@ -262,9 +281,9 @@ export default function Home() {
           </section>
         )}
 
-        {/* 【3】カード選択画面 */}
+        {/* 【フェーズ3】カード選択画面 */}
         {phase === "revealing" && !error && (
-          <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center min-h-[300px] flex flex-col items-center justify-center relative">
+          <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center min-h-[300px] flex flex-col items-center justify-center relative z-40">
             <h2 className="text-lg font-semibold text-[#f5d995] mb-6">導かれたカードをめくってください</h2>
             <div className="flex flex-wrap justify-center gap-4">
               {selectedCards.map((cardNum, index) => (
@@ -286,9 +305,9 @@ export default function Home() {
           </section>
         )}
 
-        {/* 【4】鑑定書表示画面 */}
+        {/* 【フェーズ4】鑑定書表示画面 */}
         {(phase === "typing" || phase === "done") && !error && (
-          <section className="mt-10 border-t border-[#6e5a2d] pt-8 block relative">
+          <section className="mt-10 border-t border-[#6e5a2d] pt-8 block relative z-40">
             <div className="flex flex-wrap justify-center gap-2 mb-6 opacity-80">
               {selectedCards.map((cardNum, index) => (
                 <div key={index} className="w-12 h-18 border border-[#d5ab55] rounded overflow-hidden shadow-md">
