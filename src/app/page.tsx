@@ -173,7 +173,7 @@ export default function Home() {
       
     } catch (err: any) { 
       setError(err.message || "通信エラーが発生しました。"); 
-      setPhase("idle"); // エラー時は強制的に最初の入力状態に戻す
+      setPhase("idle"); 
     } finally {
       setIsRequestPending(false);
     }
@@ -188,18 +188,18 @@ export default function Home() {
           あなたの専属占い師 <span className="text-sm font-normal text-[#d7c089]">(監修：清子)</span>
         </h1>
         
-        {/* エラー表示は最上部に安全に隔離 */}
+        {/* エラー表示 */}
         {error && (
           <div className="mt-6 text-red-400 text-center bg-red-950/40 p-4 rounded-lg border border-red-500/50 relative z-50">
             <p className="font-bold mb-1">⚠️ エラーが発生しました</p>
             <p className="text-sm mb-2">{error}</p>
-            <button onClick={() => { setError(""); setPlan("free"); }} className="px-4 py-1 bg-red-800 text-white rounded-full text-xs hover:bg-red-700 transition">
+            <button onClick={() => { setError(""); setPhase("idle"); }} className="px-4 py-1 bg-red-800 text-white rounded-full text-xs hover:bg-red-700 transition">
               入力画面をクリアして戻る
             </button>
           </div>
         )}
 
-        {/* 鑑定中（動画やカード展開中）は入力フォームをHTMLから完全に消滅させて重なりを防ぐ */}
+        {/* 【フェーズ1】入力画面（idleのときだけ表示、鑑定が始まったら跡形もなく消える） */}
         {phase === "idle" && !error && (
           <form onSubmit={handleSubmit} className="mt-8 space-y-8">
             <div className="space-y-3">
@@ -249,9 +249,9 @@ export default function Home() {
           </form>
         )}
 
-        {/* 【隔離1】シャッフルフェーズ：エラーがないときだけ動く */}
+        {/* 【フェーズ2】シャッフル動画画面（shufflingのときだけ表示、終わったら100%完全消滅する） */}
         {phase === "shuffling" && !error && (
-          <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center h-[450px] relative bg-[#111]/95 rounded-xl overflow-hidden z-40">
+          <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center h-[450px] relative bg-[#111]/95 rounded-xl overflow-hidden">
             <h2 className="text-xl font-semibold text-[#f5d995] mb-12 tracking-widest animate-pulse">
               運命のカードを混ぜ合わせています...
             </h2>
@@ -273,9 +273,9 @@ export default function Home() {
           </section>
         )}
 
-        {/* 【隔離2】カード選択フェーズ */}
+        {/* 【フェーズ3】カード選択画面（revealingのときだけ表示、めくったら完全消滅する） */}
         {phase === "revealing" && !error && (
-          <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center min-h-[300px] flex flex-col items-center justify-center relative z-40">
+          <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center min-h-[300px] flex flex-col items-center justify-center relative">
             <h2 className="text-lg font-semibold text-[#f5d995] mb-6">導かれたカードをめくってください</h2>
             <div className="flex flex-wrap justify-center gap-4">
               {selectedCards.map((cardNum, index) => (
@@ -283,7 +283,7 @@ export default function Home() {
                   key={index} 
                   onClick={() => { 
                     setAllRevealed(true); 
-                    setPhase("typing"); 
+                    setPhase("typing"); // クリックされたら即座に次の鑑定書画面へ完全移動
                   }} 
                   className="relative w-24 h-36 transition-transform duration-700 [transform-style:preserve-3d]"
                   style={{ perspective: "1000px" }}
@@ -300,9 +300,10 @@ export default function Home() {
           </section>
         )}
 
-        {/* 【隔離3】鑑定書表示フェーズ */}
+        {/* 【フェーズ4】鑑定書表示画面（typing または done のときだけ初めて出現。動画や残像は1ミリも残らない） */}
         {(phase === "typing" || phase === "done") && !error && (
-          <section className="mt-10 border-t border-[#6e5a2d] pt-8 relative z-40 bg-[#111] rounded-xl p-2">
+          <section className="mt-10 border-t border-[#6e5a2d] pt-8">
+            {/* めくったカードの小さなプレビュー */}
             <div className="flex flex-wrap justify-center gap-2 mb-6 opacity-60 scale-90">
               {selectedCards.map((cardNum, index) => (
                 <div key={index} className="w-12 h-18 border border-[#d5ab55] rounded overflow-hidden">
