@@ -16,9 +16,6 @@ export default function Home() {
   const [typedAnswer, setTypedAnswer] = useState("");
   const [error, setError] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
-  const [isRequestPending, setIsRequestPending] = useState(false);
-  const [isShuffleDone, setIsShuffleDone] = useState(false);
-  const [allRevealed, setAllRevealed] = useState(false);
   const [selectedCards, setSelectedCards] = useState<number[]>([]);
   const [sessionSeed] = useState(() => Math.random().toString(36).substring(7));
 
@@ -51,14 +48,16 @@ export default function Home() {
     return map[plan];
   }, [plan]);
 
+  // シャッフル中（shuffling）以外は、メモリ節約と暴走防止のためにデータを空にする仕様に変更
   const shuffleCardsData = useMemo(() => {
+    if (phase !== "shuffling") return []; // 🚨 鑑定文エリアへの漏れ出しを物理的に防ぐ最重要ガード
     return Array.from({ length: 22 }).map((_, i) => ({
       id: i,
       delay: `${i * 100}ms`,
       "--start-angle": `${(i * 360) / 22}deg`,
       "--radius": `${12 + (i % 3) * 6}vw`, 
     }));
-  }, []);
+  }, [phase]);
 
   const getCardImage = (cardNum: number) => `https://picsum.photos/seed/${sessionSeed}-${cardNum}/200/300`;
 
@@ -66,7 +65,6 @@ export default function Home() {
   useEffect(() => {
     if (phase !== "shuffling") return;
     const timer = window.setTimeout(() => {
-      setIsShuffleDone(true);
       setPhase("revealing"); 
     }, 7000);
     return () => window.clearTimeout(timer);
@@ -90,7 +88,6 @@ export default function Home() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
-    setAllRevealed(false);
     setTypedAnswer("");
     setFinalAnswer("");
 
@@ -126,8 +123,6 @@ export default function Home() {
     setSelectedCards(chosenCards);
 
     setPhase("shuffling");
-    setIsRequestPending(true);
-    setIsShuffleDone(false);
 
     const planConfig = {
       free: "無料プラン（250文字以内。形式『結論：』『アドバイス：』。占星術禁止。改行必須）",
@@ -159,13 +154,10 @@ export default function Home() {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`Difyとの通信に失敗しました(Status: ${response.status})。環境変数、またはDify側の公開設定を確認してください。`);
-      }
-
       const data = await response.json();
-      if (!data || !data.answer) {
-        throw new Error("AIデータの解析に失敗しました。");
+
+      if (!response.ok || (data && data.error)) {
+        throw new Error(data.error || `Difyとの通信に失敗しました(Status: ${response.status})。`);
       }
 
       setFinalAnswer(data.answer.trim());
@@ -173,8 +165,6 @@ export default function Home() {
     } catch (err: any) { 
       setError(err.message || "通信エラーが発生しました。"); 
       setPhase("idle"); 
-    } finally {
-      setIsRequestPending(false);
     }
   };
 
@@ -187,7 +177,7 @@ export default function Home() {
           あなたの専属占い師 <span className="text-sm font-normal text-[#d7c089]">(監修：清子)</span>
         </h1>
         
-        {/* エラーアラート：最上部に完全隔離 */}
+        {/* エラー表示 */}
         {error && (
           <div className="mt-6 text-red-400 text-center bg-red-950/40 p-4 rounded-lg border border-red-500/50 relative z-50">
             <p className="font-bold mb-1">⚠️ エラーが発生しました</p>
@@ -197,11 +187,6 @@ export default function Home() {
             </button>
           </div>
         )}
-
-        {/* ----------------------------------------------------------------------
-            【HTML構造改革】
-            各画面のsectionタグが絶対に交差・ネスト（入れ子）しないよう綺麗に整列
-           ---------------------------------------------------------------------- */}
 
         {/* 【1】入力画面 */}
         {phase === "idle" && !error && (
@@ -253,8 +238,8 @@ export default function Home() {
           </form>
         )}
 
-        {/* 【2】シャッフル動画画面：完全にここで独立して閉じる */}
-        {phase === "shuffling" && !error && (
+        {/* 【2】シャッフル動画画面：配列が空の時は完全に何もレンダリングしない */}
+        {phase === "shuffling" && !error && shuffleCardsData.length > 0 && (
           <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center h-[450px] relative bg-[#111]/95 rounded-xl overflow-hidden">
             <h2 className="text-xl font-semibold text-[#f5d995] mb-12 tracking-widest animate-pulse">
               運命のカードを混ぜ合わせています...
@@ -277,7 +262,7 @@ export default function Home() {
           </section>
         )}
 
-        {/* 【3】カード選択画面：完全にここで独立して閉じる */}
+        {/* 【3】カード選択画面 */}
         {phase === "revealing" && !error && (
           <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center min-h-[300px] flex flex-col items-center justify-center relative">
             <h2 className="text-lg font-semibold text-[#f5d995] mb-6">導かれたカードをめくってください</h2>
@@ -285,10 +270,7 @@ export default function Home() {
               {selectedCards.map((cardNum, index) => (
                 <button 
                   key={index} 
-                  onClick={() => { 
-                    setAllRevealed(true); 
-                    setPhase("typing"); 
-                  }} 
+                  onClick={() => setPhase("typing")} 
                   className="relative w-24 h-36 transition-transform duration-700 [transform-style:preserve-3d]"
                   style={{ perspective: "1000px" }}
                 >
@@ -304,9 +286,9 @@ export default function Home() {
           </section>
         )}
 
-        {/* 【4】鑑定書表示画面：完全に独立した最下層の部屋 */}
+        {/* 【4】鑑定書表示画面 */}
         {(phase === "typing" || phase === "done") && !error && (
-          <section className="mt-10 border-t border-[#6e5a2d] pt-8 relative block">
+          <section className="mt-10 border-t border-[#6e5a2d] pt-8 block relative">
             <div className="flex flex-wrap justify-center gap-2 mb-6 opacity-80">
               {selectedCards.map((cardNum, index) => (
                 <div key={index} className="w-12 h-18 border border-[#d5ab55] rounded overflow-hidden shadow-md">
@@ -325,10 +307,7 @@ export default function Home() {
         )}
 
         <footer className="mt-16 border-t border-[#6e5a2d]/30 pt-8 text-center">
-          <a 
-            href="/tokushoho" 
-            className="text-[12px] tracking-widest text-[#a8946a] hover:text-[#d5ab55] underline-offset-4 transition duration-300 underline"
-          >
+          <a href="/tokushoho" className="text-[12px] tracking-widest text-[#a8946a] hover:text-[#d5ab55] underline-offset-4 transition duration-300 underline">
             特定商取引法に基づく表記
           </a>
         </footer>
