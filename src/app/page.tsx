@@ -61,29 +61,27 @@ export default function Home() {
 
   const getCardImage = (cardNum: number) => `https://picsum.photos/seed/${sessionSeed}-${cardNum}/200/300`;
 
-  // シャッフルアニメーションの演出時間（7秒）を管理
+  // 【修正ポイント】シャッフルのタイマー管理
   useEffect(() => {
     if (phase !== "shuffling") return;
     const timer = window.setTimeout(() => {
       setIsShuffleDone(true);
+      setPhase("revealing"); // 7秒経ったら通信状態に関わらず確実にカードオープン画面へ移行
     }, 7000);
     return () => window.clearTimeout(timer);
   }, [phase]);
 
-  // アニメーションが終わり、かつAIの応答準備（または通信開始）が整ったらカード表示へ
-  useEffect(() => {
-    if (isShuffleDone && isRequestPending) {
-      setPhase("revealing");
-    }
-  }, [isRequestPending, isShuffleDone]);
-
+  // 【修正ポイント】文字送りアニメーションの制御
   useEffect(() => {
     if (phase !== "typing" || !finalAnswer) return;
     let index = 0;
     const timer = window.setInterval(() => {
       index += 5;
       setTypedAnswer(finalAnswer.slice(0, index));
-      if (index >= finalAnswer.length) { window.clearInterval(timer); setPhase("done"); }
+      if (index >= finalAnswer.length) { 
+        window.clearInterval(timer); 
+        setPhase("done"); 
+      }
     }, 20);
     return () => window.clearInterval(timer);
   }, [phase, finalAnswer]);
@@ -92,6 +90,8 @@ export default function Home() {
     event.preventDefault();
     setError("");
     setAllRevealed(false);
+    setTypedAnswer("");
+    setFinalAnswer("");
 
     if (question.match(/死|殺|消えたい|終わりにしたい/)) {
       setError("早まらないでください。解決策は他にもあるはずです。");
@@ -100,7 +100,6 @@ export default function Home() {
 
     if (!genre || !question.trim()) { setError("ジャンルと相談内容を詳しく入力してください。。。"); return; }
 
-    // 【復活】入力されたパスワードの判定ロジック
     const normalize = (str: string) => {
       return str.replace(/[Ａ-Ｚａ-ｚ０-９]/g, (s) => {
         return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
@@ -115,19 +114,17 @@ export default function Home() {
       normalizedQuestion.includes(normalize(PASSWORDS.GOHA_1500)) ||
       normalizedQuestion.includes(normalize(PASSWORDS.KIWAMI_3000));
 
-    // 無料プラン以外で、正しいパスワードが入力されていない場合はエラーを出してストップ
     if (plan !== "free" && !hasAdminPass && !hasPremiumPass && !hasPaidPass) {
       setError("このプランを利用するには、STORESで購入した正しいパスワード（認証コード）を相談内容に含めて入力してください。");
       return;
     }
 
-    // カードを決定
     const deck = Array.from({ length: 22 }, (_, i) => i);
     const shuffledDeck = deck.sort(() => Math.random() - 0.5);
     const chosenCards = shuffledDeck.slice(0, cardCount);
     setSelectedCards(chosenCards);
 
-    // 画面状態をシャッフルへ移行
+    // シャッフル演出を開始
     setPhase("shuffling");
     setIsRequestPending(true);
     setIsShuffleDone(false);
@@ -169,6 +166,7 @@ export default function Home() {
     } catch (err: any) { 
       setError(err.message); 
       setPhase("idle"); 
+    } finally {
       setIsRequestPending(false);
     }
   };
@@ -231,14 +229,29 @@ export default function Home() {
 
         {error && <p className="mt-6 text-red-400 text-center bg-red-950/30 p-3 rounded-lg border border-red-500/50">{error}</p>}
 
-        {(phase === "revealing" || phase === "typing" || phase === "done") && (
+        {/* 【修正ポイント】シャッフル中もカードの枠組みだけは見せる、またはめくる画面へ正常に移行させる */}
+        {(phase === "shuffling" || phase === "revealing" || phase === "typing" || phase === "done") && (
           <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center">
-            <h2 className="text-lg font-semibold text-[#f5d995] mb-6">導かれたカードをめくってください</h2>
+            <h2 className="text-lg font-semibold text-[#f5d995] mb-6">
+              {phase === "shuffling" ? "カードを導き出しています..." : "導かれたカードをめくってください"}
+            </h2>
             <div className="flex flex-wrap justify-center gap-4">
               {selectedCards.map((cardNum, index) => (
-                <button key={index} onClick={() => { setAllRevealed(true); if(phase==="revealing") setPhase("typing"); }} className={`relative w-24 h-36 transition-transform duration-700 [transform-style:preserve-3d] ${allRevealed ? "[transform:rotateY(180deg)]" : ""}`}>
-                  <div className="absolute inset-0 flex items-center justify-center border border-[#d5ab55] bg-[#1a1a1a] rounded-lg [backface-visibility:hidden]"><span className="text-[#d5ab55] text-2xl">✦</span></div>
-                  <div className="absolute inset-0 border border-[#d5ab55] bg-black rounded-lg [transform:rotateY(180deg)] [backface-visibility:hidden] overflow-hidden"><img src={getCardImage(cardNum)} className="w-full h-full object-cover opacity-80" alt="card" /></div>
+                <button 
+                  key={index} 
+                  disabled={phase === "shuffling"}
+                  onClick={() => { 
+                    setAllRevealed(true); 
+                    if (phase === "revealing") setPhase("typing"); 
+                  }} 
+                  className={`relative w-24 h-36 transition-transform duration-700 [transform-style:preserve-3d] ${allRevealed ? "[transform:rotateY(180deg)]" : ""}`}
+                >
+                  <div className="absolute inset-0 flex items-center justify-center border border-[#d5ab55] bg-[#1a1a1a] rounded-lg [backface-visibility:hidden]">
+                    <span className="text-[#d5ab55] text-2xl">✦</span>
+                  </div>
+                  <div className="absolute inset-0 border border-[#d5ab55] bg-black rounded-lg [transform:rotateY(180deg)] [backface-visibility:hidden] overflow-hidden">
+                    <img src={getCardImage(cardNum)} className="w-full h-full object-cover opacity-80" alt="card" />
+                  </div>
                 </button>
               ))}
             </div>
