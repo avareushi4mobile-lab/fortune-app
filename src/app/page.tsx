@@ -194,7 +194,7 @@ export default function Home() {
               </div>
               {plan === "extreme" && (
                 <div className="space-y-2 pt-2 border-t border-[#6e5a2d]/30">
-                  <p className="text-sm text-[#d7c089] font-bold">相手の生年月日（または設立日）</p>
+                  <p className="text-sm text-[#d7c089] font-bold">相手の生年月日（または会社の設立日）入力無しでも大丈夫です</p>
                   <input type="date" value={partnerBirthday} onChange={(e) => setPartnerBirthday(e.target.value)} className="w-full rounded-lg border border-[#6e5a2d] bg-[#0b0b0b] p-3 text-[#f7e6bd] outline-none" />
                 </div>
               )}
