@@ -121,7 +121,7 @@ export default function Home() {
       }
     }
 
-    if (!genre || !question.trim()) { setError("ジャンルと相談内容を入力してください。"); return; }
+    if (!genre || !question.trim()) { setError("ジャンルと相談内容を詳しく入力してください。。。"); return; }
 
     const deck = Array.from({ length: 22 }, (_, i) => i);
     const shuffledDeck = deck.sort(() => Math.random() - 0.5);
