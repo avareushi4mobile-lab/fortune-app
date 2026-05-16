@@ -23,10 +23,14 @@ export default function Home() {
   const [showHelp, setShowHelp] = useState(false);
   const [sessionSeed] = useState(() => Math.random().toString(36).substring(7));
 
+  // 通常版・豪華版・極版用のパスワードを定義に追加
   const PASSWORDS = { 
     ADMIN: "kiyoko777",
     FREE_3: "lucky",
-    PREMIUM_FREE: "premium"
+    PREMIUM_FREE: "premium",
+    NORMAL_500: "normal500",   // 通常版用
+    GOHA_1500: "goha1500",     // 豪華版用
+    KIWAMI_3000: "kiwami3000"  // 極版用
   };
 
   useEffect(() => {
@@ -93,13 +97,20 @@ export default function Home() {
     const normalizedQuestion = normalize(question);
     const hasAdminPass = normalizedQuestion.includes(normalize(PASSWORDS.ADMIN));
     const hasPremiumPass = normalizedQuestion.includes(normalize(PASSWORDS.PREMIUM_FREE));
+    
+    // 追加した3つの有料パスワードのいずれかが含まれているか判定
+    const hasPaidPass = 
+      normalizedQuestion.includes(normalize(PASSWORDS.NORMAL_500)) ||
+      normalizedQuestion.includes(normalize(PASSWORDS.GOHA_1500)) ||
+      normalizedQuestion.includes(normalize(PASSWORDS.KIWAMI_3000));
 
     if (question.match(/死|殺|消えたい|終わりにしたい/)) {
       setError("早まらないでください。解決策は他にもあるはずです。");
       return;
     }
 
-    if (plan !== "free" && !hasAdminPass && !hasPremiumPass) {
+    // パスワードを所持していない場合のみ、STORES/Stripeの決済リンクへ飛ばす処理を実行
+    if (plan !== "free" && !hasAdminPass && !hasPremiumPass && !hasPaidPass) {
       try {
         const res = await fetch("/api/checkout", {
           method: "POST",
@@ -132,6 +143,7 @@ export default function Home() {
     setIsRequestPending(true);
     setIsShuffleDone(false);
 
+    // ご提示いただいたプラン名定義に書き換え
     const planConfig = {
       free: "無料プラン（250文字以内。形式『結論：』『アドバイス：』。占星術禁止。改行必須）",
       standard: "通常プラン（700文字以内。カードのみ。占星術禁止。主語は『相手』。改行必須）",
@@ -139,12 +151,22 @@ export default function Home() {
       extreme: "極プラン（1800文字以内。占星術使用。主語は『相手』。改行必須）"
     }[plan];
 
+    // バックエンド（AI側）に送る文章から、新しいパスワード3種も漏れなく除去（マスク）する設定
+    const maskPatterns = [
+      PASSWORDS.ADMIN,
+      PASSWORDS.FREE_3,
+      PASSWORDS.PREMIUM_FREE,
+      PASSWORDS.NORMAL_500,
+      PASSWORDS.GOHA_1500,
+      PASSWORDS.KIWAMI_3000
+    ].join("|");
+
     try {
       const response = await fetch("/api/fortune", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          question: question.replace(new RegExp(`${PASSWORDS.ADMIN}|${PASSWORDS.FREE_3}|${PASSWORDS.PREMIUM_FREE}`, "gi"), ""), 
+          question: question.replace(new RegExp(maskPatterns, "gi"), ""), 
           plan: planConfig, 
           genre, 
           birthday: birthday || "未設定",
