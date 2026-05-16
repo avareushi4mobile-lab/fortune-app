@@ -61,14 +61,20 @@ export default function Home() {
 
   const getCardImage = (cardNum: number) => `https://picsum.photos/seed/${sessionSeed}-${cardNum}/200/300`;
 
+  // シャッフルアニメーションの演出時間（7秒）を管理
   useEffect(() => {
     if (phase !== "shuffling") return;
-    const timer = window.setTimeout(() => setIsShuffleDone(true), 7000);
+    const timer = window.setTimeout(() => {
+      setIsShuffleDone(true);
+    }, 7000);
     return () => window.clearTimeout(timer);
   }, [phase]);
 
+  // アニメーションが終わり、かつAIの応答準備（または通信開始）が整ったらカード表示へ
   useEffect(() => {
-    if (isShuffleDone && !isRequestPending) setPhase("revealing");
+    if (isShuffleDone && isRequestPending) {
+      setPhase("revealing");
+    }
   }, [isRequestPending, isShuffleDone]);
 
   useEffect(() => {
@@ -82,7 +88,7 @@ export default function Home() {
     return () => window.clearInterval(timer);
   }, [phase, finalAnswer]);
 
-const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
     setAllRevealed(false);
@@ -94,13 +100,34 @@ const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
 
     if (!genre || !question.trim()) { setError("ジャンルと相談内容を詳しく入力してください。。。"); return; }
 
-    // 1. 先にカードを決定する
+    // 【復活】入力されたパスワードの判定ロジック
+    const normalize = (str: string) => {
+      return str.replace(/[Ａ-Ｚａ-ｚ０-９]/g, (s) => {
+        return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
+      }).toLowerCase();
+    };
+
+    const normalizedQuestion = normalize(question);
+    const hasAdminPass = normalizedQuestion.includes(normalize(PASSWORDS.ADMIN));
+    const hasPremiumPass = normalizedQuestion.includes(normalize(PASSWORDS.PREMIUM_FREE));
+    const hasPaidPass = 
+      normalizedQuestion.includes(normalize(PASSWORDS.NORMAL_500)) ||
+      normalizedQuestion.includes(normalize(PASSWORDS.GOHA_1500)) ||
+      normalizedQuestion.includes(normalize(PASSWORDS.KIWAMI_3000));
+
+    // 無料プラン以外で、正しいパスワードが入力されていない場合はエラーを出してストップ
+    if (plan !== "free" && !hasAdminPass && !hasPremiumPass && !hasPaidPass) {
+      setError("このプランを利用するには、STORESで購入した正しいパスワード（認証コード）を相談内容に含めて入力してください。");
+      return;
+    }
+
+    // カードを決定
     const deck = Array.from({ length: 22 }, (_, i) => i);
     const shuffledDeck = deck.sort(() => Math.random() - 0.5);
     const chosenCards = shuffledDeck.slice(0, cardCount);
     setSelectedCards(chosenCards);
 
-    // 2. 先に画面のシャッフルアニメーションを開始する（通信を待たずにフェーズを動かす）
+    // 画面状態をシャッフルへ移行
     setPhase("shuffling");
     setIsRequestPending(true);
     setIsShuffleDone(false);
@@ -121,7 +148,6 @@ const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
       PASSWORDS.KIWAMI_3000
     ].join("|");
 
-    // 3. 裏側で非同期にDify（AI）へ通信を投げる
     try {
       const response = await fetch("/api/fortune", {
         method: "POST",
@@ -140,15 +166,13 @@ const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
       if (!response.ok) throw new Error("通信環境の良い場所で再度お試しください。");
       setFinalAnswer(data.answer.trim());
       
-      // データが正常に届いたら保留フラグを解除
-      setIsRequestPending(false);
-
     } catch (err: any) { 
       setError(err.message); 
       setPhase("idle"); 
       setIsRequestPending(false);
     }
   };
+
   return (
     <div className="relative min-h-screen bg-[#070707] px-6 py-12 text-[#f5e6b7]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,#3a2c13_0%,#0b0b0b_45%,#050505_100%)] opacity-70" />
