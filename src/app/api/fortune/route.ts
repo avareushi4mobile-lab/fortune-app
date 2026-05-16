@@ -13,23 +13,24 @@ export async function POST(request: Request) {
     const safeCards = (typeof cards === 'string') ? cards.trim() : "未設定";
     const safePlan = (typeof plan === 'string') ? plan.trim() : "通常プラン";
 
-    // 【超重要】Difyが「400エラー」を出さないよう、inputs変数を最小限の安全な形にする
+    // 【Dify完全連動仕様】Difyのプロンプトが求める「cards」変数をinputsに正しく配置する
     const difyRequestBody = {
       inputs: { 
         genre: genre || "全般",
-        birthday: safeBirthday
+        birthday: safeBirthday,
+        cards: safeCards // Difyが指示文の中で探している「cards」変数をここに確実に格納
       },
-      // すべての命令、カード情報、プラン情報を一つの文章(query)にまとめてDifyのメイン入力に流し込む
-      query: `【鑑定指示】
+      
+      // Difyの「ナレッジ」やメイン処理を正常に通過させるため、 query に綺麗に要約して流し込む
+      query: `【鑑定依頼】
 適用プラン：${safePlan}
-導かれたカード：【${safeCards}】
+ジャンル：${genre || "全般"}
+タロットカード番号：【${safeCards}】
 相談者の生年月日：${safeBirthday}
-お相手の生年月日（または会社設立日）：${safePartnerBirthday}
+相手の生年月日（または会社設立日）：${safePartnerBirthday}
 
-【相談内容】
-${question}
-
-上記内容について、システムプロンプトにある指示と、指定されたプラン別ルールを【死守】し、誠実に鑑定レポート（JSON形式のみ）を出力してください。`,
+相談内容：
+${question}`,
       response_mode: "blocking",
       user: "user-kiyoko"
     };
@@ -43,10 +44,14 @@ ${question}
       body: JSON.stringify(difyRequestBody),
     });
 
+    // 400や500エラーが出た場合に、原因のログをVercelのコンソールにハッキリ残す設定
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Dify Error:', errorText);
-      return NextResponse.json({ error: "Dify通信エラー" }, { status: response.status });
+      console.error('Dify API Error Rejected:', errorText);
+      return NextResponse.json(
+        { error: `Dify側から拒否されました(Status: ${response.status})。入力データの噛み合わせを確認してください。` }, 
+        { status: response.status }
+      );
     }
 
     const data = await response.json();
