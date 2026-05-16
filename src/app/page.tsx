@@ -23,14 +23,13 @@ export default function Home() {
   const [showHelp, setShowHelp] = useState(false);
   const [sessionSeed] = useState(() => Math.random().toString(36).substring(7));
 
-  // 通常版・豪華版・極版用のパスワードを定義に追加
   const PASSWORDS = { 
     ADMIN: "kiyoko777",
     FREE_3: "lucky",
     PREMIUM_FREE: "premium",
-    NORMAL_500: "normal500",   // 通常版用
-    GOHA_1500: "goha1500",     // 豪華版用
-    KIWAMI_3000: "kiwami3000"  // 極版用
+    NORMAL_500: "normal500",   
+    GOHA_1500: "goha1500",     
+    KIWAMI_3000: "kiwami3000"  
   };
 
   useEffect(() => {
@@ -88,51 +87,17 @@ export default function Home() {
     setError("");
     setAllRevealed(false);
 
-    const normalize = (str: string) => {
-      return str.replace(/[Ａ-Ｚａ-ｚ０-９]/g, (s) => {
-        return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
-      }).toLowerCase();
-    };
-
-    const normalizedQuestion = normalize(question);
-    const hasAdminPass = normalizedQuestion.includes(normalize(PASSWORDS.ADMIN));
-    const hasPremiumPass = normalizedQuestion.includes(normalize(PASSWORDS.PREMIUM_FREE));
-    
-    // 追加した3つの有料パスワードのいずれかが含まれているか判定
-    const hasPaidPass = 
-      normalizedQuestion.includes(normalize(PASSWORDS.NORMAL_500)) ||
-      normalizedQuestion.includes(normalize(PASSWORDS.GOHA_1500)) ||
-      normalizedQuestion.includes(normalize(PASSWORDS.KIWAMI_3000));
-
     if (question.match(/死|殺|消えたい|終わりにしたい/)) {
       setError("早まらないでください。解決策は他にもあるはずです。");
       return;
     }
 
-    // パスワードを所持していない場合のみ、STORES/Stripeの決済リンクへ飛ばす処理を実行
-    if (plan !== "free" && !hasAdminPass && !hasPremiumPass && !hasPaidPass) {
-      try {
-        const res = await fetch("/api/checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ planId: plan }),
-        });
-        const checkoutData = await res.json();
-        if (res.ok && checkoutData.url) {
-          window.location.href = checkoutData.url;
-          return;
-        } else {
-          const errorMsg = checkoutData.error || "決済URLを取得できませんでした。";
-          setError(`決済エラー: ${errorMsg}`);
-          return;
-        }
-      } catch (err) {
-        setError("通信エラーが発生しました。");
-        return;
-      }
-    }
-
     if (!genre || !question.trim()) { setError("ジャンルと相談内容を詳しく入力してください。。。"); return; }
+
+    /* 【修正ポイント】
+      ここに存在していた Stripe決済URLを取得してリダイレクトする処理（if (plan !== "free" && ...)）を完全に削除しました。
+      これにより、どのプランを選択してボタンを押しても、直接下のAI鑑定（/api/fortune）の通信へ進みます。
+    */
 
     const deck = Array.from({ length: 22 }, (_, i) => i);
     const shuffledDeck = deck.sort(() => Math.random() - 0.5);
@@ -143,7 +108,6 @@ export default function Home() {
     setIsRequestPending(true);
     setIsShuffleDone(false);
 
-    // ご提示いただいたプラン名定義に書き換え
     const planConfig = {
       free: "無料プラン（250文字以内。形式『結論：』『アドバイス：』。占星術禁止。改行必須）",
       standard: "通常プラン（700文字以内。カードのみ。占星術禁止。主語は『相手』。改行必須）",
@@ -151,7 +115,6 @@ export default function Home() {
       extreme: "極プラン（1800文字以内。占星術使用。主語は『相手』。改行必須）"
     }[plan];
 
-    // バックエンド（AI側）に送る文章から、新しいパスワード3種も漏れなく除去（マスク）する設定
     const maskPatterns = [
       PASSWORDS.ADMIN,
       PASSWORDS.FREE_3,
@@ -233,7 +196,7 @@ export default function Home() {
           </div>
 
           <button type="submit" className="w-full rounded-full bg-[#c7983f] py-4 font-bold text-black hover:bg-[#d5ab55] transition text-lg shadow-lg">
-            {plan === "free" ? "お試し鑑定を受ける（無料）" : "本鑑定を開始する（決済画面へ）"}
+            {plan === "free" ? "お試し鑑定を受ける（無料）" : "本鑑定を開始する"}
           </button>
         </form>
 
@@ -260,7 +223,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* --- フッター：特商法ページへの相互リンクを追加 --- */}
         <footer className="mt-16 border-t border-[#6e5a2d]/30 pt-8 text-center">
           <a 
             href="/tokushoho" 
