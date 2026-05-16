@@ -13,16 +13,14 @@ export async function POST(request: Request) {
     const safeCards = (typeof cards === 'string') ? cards.trim() : "未設定";
     const safePlan = (typeof plan === 'string') ? plan.trim() : "通常プラン";
 
-    // 【Dify完全連動仕様】Difyのプロンプトが求める「cards」変数をinputsに正しく配置する
+    // どのDifyアプリタイプ（チャット/ワークフロー）でも門前払いされない共通データ構造
     const difyRequestBody = {
       inputs: { 
         genre: genre || "全般",
         birthday: safeBirthday,
-        cards: safeCards // Difyが指示文の中で探している「cards」変数をここに確実に格納
+        cards: safeCards 
       },
-      
-      // Difyの「ナレッジ」やメイン処理を正常に通過させるため、 query に綺麗に要約して流し込む
-      query: `【鑑定依頼】
+      query: `【鑑定指示】
 適用プラン：${safePlan}
 ジャンル：${genre || "全般"}
 タロットカード番号：【${safeCards}】
@@ -44,28 +42,46 @@ ${question}`,
       body: JSON.stringify(difyRequestBody),
     });
 
-    // 400や500エラーが出た場合に、原因のログをVercelのコンソールにハッキリ残す設定
+    // Difyが400エラー等で拒否した場合、エラー内容を画面にフリーズさせず、原因を文字でフロントへ突き返す
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Dify API Error Rejected:', errorText);
+      console.error('Dify Rejected Error:', errorText);
       return NextResponse.json(
-        { error: `Dify側から拒否されました(Status: ${response.status})。入力データの噛み合わせを確認してください。` }, 
-        { status: response.status }
+        { answer: `【システム通信エラー】Dify側が通信を拒否しました(Status: ${response.status})。\n\nお手数ですが、Vercelの環境変数「DIFY_API_URL」のURL末尾が正しくアプリのタイプと一致しているか（チャット型なら /chat-messages、ワークフロー型なら /workflow/run）を今一度ご確認ください。\n\n詳細ログ: ${errorText.slice(0, 100)}` },
+        { status: 200 } // ➔ 400で返すと画面が壊れるため、あえて200で文字として流し込む防衛策
       );
     }
 
     const data = await response.json();
-    const difyAnswer = data.answer || "鑑定結果を取得できませんでした。";
+    
+    // 【万能パースロジック】Difyのアプリタイプ（Chatflow / Workflow）の返却形式の違いを完全自動吸収
+    let difyAnswer = "";
+    if (data.answer) {
+      difyAnswer = data.answer; // チャット型の場合
+    } else if (data.data && data.data.outputs && data.data.outputs.text) {
+      difyAnswer = data.data.outputs.text; // ワークフロー型でtext出力の場合
+    } else if (data.data && data.data.outputs) {
+      difyAnswer = typeof data.data.outputs === 'string' ? data.data.outputs : JSON.stringify(data.data.outputs);
+    } else {
+      difyAnswer = JSON.stringify(data); // 最終バックアップ
+    }
+
     const baseResponse = { cardInterpretations: { past: "過去", present: "現在", future: "未来" } };
 
     try {
+      // AIが指示通りJSONの文字列で返してきた場合、中身を綺麗にパース
       const parsed = JSON.parse(difyAnswer);
       return NextResponse.json({ ...baseResponse, answer: parsed.answer || difyAnswer });
     } catch (e) {
+      // 通常テキストや壊れたJSONの場合も、画面を壊さずそのまま文字を表示させる
       return NextResponse.json({ ...baseResponse, answer: difyAnswer });
     }
 
   } catch (error: any) {
-    return NextResponse.json({ error: 'サーバー内でエラーが発生しました。' }, { status: 500 });
+    console.error('Server Fatal Error:', error);
+    return NextResponse.json(
+      { answer: `サーバー内部で深刻なエラーが発生しました。\n詳細: ${error.message}` },
+      { status: 200 }
+    );
   }
 }
