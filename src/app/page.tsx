@@ -52,26 +52,29 @@ export default function Home() {
     return map[plan];
   }, [plan]);
 
+  // 【既存CSS完全連動】22枚のカードに角度、半径、遅延時間を割り当てて渦巻きを再現
   const shuffleCardsData = useMemo(() => {
     return Array.from({ length: 22 }).map((_, i) => ({
-      id: i, delay: `${i * 100}ms`, duration: `60s`,
-      "--start-angle": `${(i * 360) / 22}deg`, "--radius": `${15 + Math.random() * 20}vw`,
+      id: i,
+      delay: `${i * 100}ms`,
+      "--start-angle": `${(i * 360) / 22}deg`,
+      "--radius": `${12 + (i % 3) * 6}vw`, // 既存CSSのvar(--radius)に渡る動的な半径
     }));
-  }, [phase === "shuffling"]);
+  }, []);
 
   const getCardImage = (cardNum: number) => `https://picsum.photos/seed/${sessionSeed}-${cardNum}/200/300`;
 
-  // 【修正ポイント】シャッフルのタイマー管理
+  // シャッフルのタイマー管理（7秒後に確実にカードめくり画面へ）
   useEffect(() => {
     if (phase !== "shuffling") return;
     const timer = window.setTimeout(() => {
       setIsShuffleDone(true);
-      setPhase("revealing"); // 7秒経ったら通信状態に関わらず確実にカードオープン画面へ移行
+      setPhase("revealing"); 
     }, 7000);
     return () => window.clearTimeout(timer);
   }, [phase]);
 
-  // 【修正ポイント】文字送りアニメーションの制御
+  // 文字送りアニメーションの制御
   useEffect(() => {
     if (phase !== "typing" || !finalAnswer) return;
     let index = 0;
@@ -172,7 +175,7 @@ export default function Home() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#070707] px-6 py-12 text-[#f5e6b7]">
+    <div className="relative min-h-screen bg-[#070707] px-6 py-12 text-[#f5e6b7] overflow-x-hidden">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,#3a2c13_0%,#0b0b0b_45%,#050505_100%)] opacity-70" />
       
       <main className="relative z-10 mx-auto max-w-4xl rounded-2xl border border-[#8f7333]/50 bg-[#111111]/90 p-6 md:p-10 shadow-lg">
@@ -229,38 +232,67 @@ export default function Home() {
 
         {error && <p className="mt-6 text-red-400 text-center bg-red-950/30 p-3 rounded-lg border border-red-500/50">{error}</p>}
 
-        {/* 【修正ポイント】シャッフル中もカードの枠組みだけは見せる、またはめくる画面へ正常に移行させる */}
+        {/* 鑑定演出セクション */}
         {(phase === "shuffling" || phase === "revealing" || phase === "typing" || phase === "done") && (
-          <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center">
-            <h2 className="text-lg font-semibold text-[#f5d995] mb-6">
-              {phase === "shuffling" ? "カードを導き出しています..." : "導かれたカードをめくってください"}
-            </h2>
-            <div className="flex flex-wrap justify-center gap-4">
-              {selectedCards.map((cardNum, index) => (
-                <button 
-                  key={index} 
-                  disabled={phase === "shuffling"}
-                  onClick={() => { 
-                    setAllRevealed(true); 
-                    if (phase === "revealing") setPhase("typing"); 
-                  }} 
-                  className={`relative w-24 h-36 transition-transform duration-700 [transform-style:preserve-3d] ${allRevealed ? "[transform:rotateY(180deg)]" : ""}`}
-                >
-                  <div className="absolute inset-0 flex items-center justify-center border border-[#d5ab55] bg-[#1a1a1a] rounded-lg [backface-visibility:hidden]">
-                    <span className="text-[#d5ab55] text-2xl">✦</span>
-                  </div>
-                  <div className="absolute inset-0 border border-[#d5ab55] bg-black rounded-lg [transform:rotateY(180deg)] [backface-visibility:hidden] overflow-hidden">
-                    <img src={getCardImage(cardNum)} className="w-full h-full object-cover opacity-80" alt="card" />
-                  </div>
-                </button>
-              ))}
-            </div>
+          <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center min-h-[400px] flex flex-col items-center justify-center relative">
+            
+            {/* 【動画演出フェーズ】既存のCSS（swirl-card / spiral-mix）と100%連動した大迫力の渦巻きシャッフル */}
+            {phase === "shuffling" && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#111]/95 z-20 rounded-xl py-10 overflow-hidden">
+                <h2 className="text-xl font-semibold text-[#f5d995] mb-48 tracking-widest animate-pulse">
+                  運命のカードを混ぜ合わせています...
+                </h2>
+                <div className="relative w-full h-0 flex items-center justify-center">
+                  {shuffleCardsData.map((c) => (
+                    <div 
+                      key={c.id}
+                      className="swirl-card"
+                      style={{
+                        "--delay": c.delay,
+                        "--start-angle": c["--start-angle"],
+                        "--radius": c["--radius"],
+                      } as CSSProperties}
+                    >
+                      <div className="shuffle-card-inner" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 【選択フェーズ】シャッフル完了後、導き出されたカードをユーザーにめくらせる画面 */}
+            {(phase === "revealing" || phase === "typing" || phase === "done") && (
+              <>
+                <h2 className="text-lg font-semibold text-[#f5d995] mb-6">導かれたカードをめくってください</h2>
+                <div className="flex flex-wrap justify-center gap-4">
+                  {selectedCards.map((cardNum, index) => (
+                    <button 
+                      key={index} 
+                      onClick={() => { 
+                        setAllRevealed(true); 
+                        if (phase === "revealing") setPhase("typing"); 
+                      }} 
+                      className={`relative w-24 h-36 transition-transform duration-700 [transform-style:preserve-3d] ${allRevealed ? "[transform:rotateY(180deg)]" : ""}`}
+                    >
+                      <div className="absolute inset-0 flex items-center justify-center border border-[#d5ab55] bg-[#1a1a1a] rounded-lg [backface-visibility:hidden]">
+                        <span className="text-[#d5ab55] text-2xl">✦</span>
+                      </div>
+                      <div className="absolute inset-0 border border-[#d5ab55] bg-black rounded-lg [transform:rotateY(180deg)] [backface-visibility:hidden] overflow-hidden">
+                        <img src={getCardImage(cardNum)} className="w-full h-full object-cover opacity-80" alt="card" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </section>
         )}
 
         {(phase === "typing" || phase === "done") && (
           <div className="mt-10 rounded-xl border border-[#d5ab55]/30 bg-[#0a0a0a] p-8 shadow-inner">
-            <h2 className="text-2xl font-bold text-[#f2d389] mb-4">鑑定書</h2>
+            <h2 className="text-2xl font-bold text-[#f2d389] mb-4">
+              鑑定書<span className={phase === "typing" ? "typing-cursor" : ""} />
+            </h2>
             <p className="whitespace-pre-wrap leading-relaxed text-[#eedeb2] text-lg">{typedAnswer}</p>
           </div>
         )}
