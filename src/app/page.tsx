@@ -126,7 +126,6 @@ export default function Home() {
     const chosenCards = shuffledDeck.slice(0, cardCount);
     setSelectedCards(chosenCards);
 
-    // 演出スタート
     setPhase("shuffling");
     setIsRequestPending(true);
     setIsShuffleDone(false);
@@ -162,23 +161,19 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        throw new Error(`サーバーエラーが発生しました(Status: ${response.status})。Dify側のログ、またはプロンプトの設定を確認してください。`);
+        throw new Error(`Difyとの通信に失敗しました(Status: ${response.status})。バックエンドの仕様、または環境変数を確認してください。`);
       }
 
       const data = await response.json();
-      
-      // JSONのパースチェック（AIからの返答が壊れている場合の防衛策）
       if (!data || !data.answer) {
-        throw new Error("AIからの回答データ（JSON）の形式が正しくありません。Difyの出力設定（JSON形式のみ）を見直してください。");
+        throw new Error("AIデータの解析に失敗しました。");
       }
 
       setFinalAnswer(data.answer.trim());
       
     } catch (err: any) { 
-      // 【最重要修正】エラーが起きても絶対に元の画面(idle)に戻さず、動画演出を安全にストップさせる
-      setError(err.message || "予期せぬ通信エラーが発生しました。"); 
-      setPhase("idle"); 
-      setIsShuffleDone(true);
+      setError(err.message || "通信エラーが発生しました。"); 
+      setPhase("idle"); // エラー時は強制的に最初の入力状態に戻す
     } finally {
       setIsRequestPending(false);
     }
@@ -193,8 +188,19 @@ export default function Home() {
           あなたの専属占い師 <span className="text-sm font-normal text-[#d7c089]">(監修：清子)</span>
         </h1>
         
-        {/* 通常の入力フォーム（鑑定中は非表示にして混乱を防ぐ） */}
-        {phase === "idle" && (
+        {/* エラー表示は最上部に安全に隔離 */}
+        {error && (
+          <div className="mt-6 text-red-400 text-center bg-red-950/40 p-4 rounded-lg border border-red-500/50 relative z-50">
+            <p className="font-bold mb-1">⚠️ エラーが発生しました</p>
+            <p className="text-sm mb-2">{error}</p>
+            <button onClick={() => { setError(""); setPlan("free"); }} className="px-4 py-1 bg-red-800 text-white rounded-full text-xs hover:bg-red-700 transition">
+              入力画面をクリアして戻る
+            </button>
+          </div>
+        )}
+
+        {/* 鑑定中（動画やカード展開中）は入力フォームをHTMLから完全に消滅させて重なりを防ぐ */}
+        {phase === "idle" && !error && (
           <form onSubmit={handleSubmit} className="mt-8 space-y-8">
             <div className="space-y-3">
               <p className="text-sm font-medium text-[#d7c089]">鑑定プランを選択</p>
@@ -243,19 +249,8 @@ export default function Home() {
           </form>
         )}
 
-        {/* 画面上部へのエラー集約表示 */}
-        {error && (
-          <div className="mt-6 text-red-400 text-center bg-red-950/40 p-4 rounded-lg border border-red-500/50 relative z-50">
-            <p className="font-bold mb-2">⚠️ エラーが発生しました</p>
-            <p className="text-sm">{error}</p>
-            <button onClick={() => { setError(""); setPhase("idle"); }} className="mt-3 px-4 py-1 bg-red-800 text-white rounded-full text-xs hover:bg-red-700 transition">
-              入力画面に戻る
-            </button>
-          </div>
-        )}
-
-        {/* 【隔離1】シャッフルフェーズ */}
-        {phase === "shuffling" && (
+        {/* 【隔離1】シャッフルフェーズ：エラーがないときだけ動く */}
+        {phase === "shuffling" && !error && (
           <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center h-[450px] relative bg-[#111]/95 rounded-xl overflow-hidden z-40">
             <h2 className="text-xl font-semibold text-[#f5d995] mb-12 tracking-widest animate-pulse">
               運命のカードを混ぜ合わせています...
@@ -279,7 +274,7 @@ export default function Home() {
         )}
 
         {/* 【隔離2】カード選択フェーズ */}
-        {phase === "revealing" && (
+        {phase === "revealing" && !error && (
           <section className="mt-10 border-t border-[#6e5a2d] pt-8 text-center min-h-[300px] flex flex-col items-center justify-center relative z-40">
             <h2 className="text-lg font-semibold text-[#f5d995] mb-6">導かれたカードをめくってください</h2>
             <div className="flex flex-wrap justify-center gap-4">
@@ -306,7 +301,7 @@ export default function Home() {
         )}
 
         {/* 【隔離3】鑑定書表示フェーズ */}
-        {(phase === "typing" || phase === "done") && (
+        {(phase === "typing" || phase === "done") && !error && (
           <section className="mt-10 border-t border-[#6e5a2d] pt-8 relative z-40 bg-[#111] rounded-xl p-2">
             <div className="flex flex-wrap justify-center gap-2 mb-6 opacity-60 scale-90">
               {selectedCards.map((cardNum, index) => (
